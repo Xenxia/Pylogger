@@ -1,6 +1,6 @@
 import getpass
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, Any
 
 RESET = '\x1b[0m'
 CRITICAL: int = 50
@@ -28,7 +28,7 @@ class Logger():
     #[1] = level Name;
     #[2] = level color;
     #[3] = level color background;
-    levelStyle: dict = {
+    levelStyle: dict[str, list[Any]] = {
         "CRITICAL" : (50, "CRITICAL", "#FEFEFE", "#A00000"),
         "ERROR" : (40, "ERROR", "#FF3030", None),
         "WARNING" : (30, "WARNING", "#FFBA01", None),
@@ -120,6 +120,18 @@ class Logger():
 
     def activColor(self, color: bool = False):
         if color: self.onColor = color
+
+    def getlevellog(self) -> int:
+        return self.levellog
+    
+    def getlevellogName(self) -> str:
+        for k, v in self.levelStyle.items():
+            if self.levellog == v[0]:
+                return k
+            
+    def isEnableFile(self) -> bool:
+        return self.writingFile
+
 
     def customize(self, message: Tuple = None, level: Tuple = None, context: Tuple = None, time: Tuple = None, user: Tuple = None):
         '''
