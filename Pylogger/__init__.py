@@ -164,17 +164,20 @@ class Logger():
         styled_color_time = s[0]+self.__color(hex="#eeeeee")+self.__time()+RESET+s[1]
 
         if self.levellog <= levelT[0]:
-            print(self.format.format(msg=styled_msg,
+
+            log = self.format.format(msg=styled_msg,
                                     context=styled_context,
                                     time=styled_color_time if self.onColor else styled_time, 
                                     levelname= styled_color_level+self.__space(levelT) if self.onColor else styled_level+self.__space(levelT),
-                                    user=styled_user))
+                                    user=styled_user)
+
+            print(log)
 
         if self.writingFile:
             self.__write(self.format.format(msg=styled_msg,
                                             context=styled_context,
                                             time=styled_time,
-                                            levelname=styled_level,
+                                            levelname=styled_level+self.__space(levelT),
                                             user=styled_user))
 
     def critical(self, msg: str, context: str = ""):
