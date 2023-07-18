@@ -1,6 +1,9 @@
-import getpass
+import getpass, inspect
 from datetime import datetime
+import ntpath
 from typing import Tuple, Any
+
+from .type import *
 
 RESET = '\x1b[0m'
 CRITICAL: int = 50
@@ -22,7 +25,7 @@ class Logger():
     format: str
     datefmt: str
 
-    levellog: int = 0
+    levellog: int = 20
     space: int = 0
     #[0] = level number;
     #[1] = level Name;
@@ -36,13 +39,7 @@ class Logger():
         "DEBUG" : (10, "DEBUG", "#00E1DA", None),
     }
 
-    logstyle: dict = {
-        "level" : ("", ""),
-        "msg" : ("", ""),
-        "context" : ("", ""),
-        "user" : ("", ""),
-        "time" : ("", ""),
-    }
+    logstyle = Style_logger()
 
     def __init__(self, format: str = None, datefmt: str = None, file_path: str = None, levellog: int = None, levelCustom: dict = None) -> None:
 
@@ -117,6 +114,36 @@ class Logger():
                 sp = sp + " "
 
         return sp
+    
+    def __stack(self, context: int = 10, sep: str = " > ", showMain=True) -> str:
+        stacks = inspect.stack()
+
+        l = []
+
+
+        for stack in stacks:
+
+            try:
+                if stack[0].f_locals['__name__'] == "__main__" and showMain: l.append(ntpath.basename(stack[0].f_locals['__file__'])+"|Main")
+            except:
+                try:
+                    _class = stack[0].f_locals["self"].__class__.__name__
+                    _function = stack[0].f_code.co_name
+
+                    if _class == "Logger":
+                        continue
+
+                    l.append(_class+'.'+_function)
+                
+                except:
+                    _function = stack[3]
+                    if _function in ["eval_python", "<module>"]:
+                        continue
+
+                    l.append(_function)
+
+        l = l[::-1][:context]
+        return sep.join(l)
 
     def activColor(self, color: bool = False):
         if color: self.onColor = color
@@ -133,22 +160,27 @@ class Logger():
         return self.writingFile
 
 
-    def customize(self, message: Tuple = None, level: Tuple = None, context: Tuple = None, time: Tuple = None, user: Tuple = None):
+    def customize(self, message: Message_s = None, level: Level_s = None, context: Context_s = None, stack: Stack_s = None, time: Time_s = None, user: User_s = None):
         '''
         {msg} : message
         {context} : context
+        {stack} : stack class function
         {time} : date time
         {levelname} : level
         {user} : user
         '''
 
-        if level is not None: self.logstyle["level"] = level
-        if message is not None: self.logstyle["msg"] = message
-        if context is not None: self.logstyle["context"] = context
-        if time is not None: self.logstyle["time"] = time
-        if user is not None: self.logstyle["user"] = user
+        if level is not None: self.logstyle.level = level
+        if message is not None: self.logstyle.msg = message
+        if context is not None: self.logstyle.ctx = context
+        if stack is not None: self.logstyle.stack = stack
+        if time is not None: self.logstyle.time = time
+        if user is not None: self.logstyle.user = user
 
     def log(self, level: str, msg: str, context: str = ""):
+
+        if self.levellog > self.levelStyle[level][0]:
+            return
 
         msg = str(msg)
         context = str(context)
@@ -158,36 +190,43 @@ class Logger():
 
         color = self.__color(hex=levelT[2], bg_hex=levelT[3])
 
-        s = self.logstyle["level"]
-        styled_level = s[0]+levelT[1]+s[1]
-        styled_color_level = s[0]+color+levelT[1]+RESET+s[1]
+        s = self.logstyle.level
+        styled_level = s.colaps1+levelT[1]+s.colaps2
+        styled_color_level = s.colaps1+color+levelT[1]+RESET+s.colaps2
 
-        s = self.logstyle["msg"]
-        styled_msg = s[0]+msg+s[1]
+        s = self.logstyle.msg
+        styled_msg = s.colaps1+msg+s.colaps2
 
-        s = self.logstyle["context"]
-        styled_context = s[0]+context+s[1] if context != "" else ""
+        s = self.logstyle.ctx
+        styled_context = s.colaps1+context+s.colaps2 if context != "" else ""
 
-        s = self.logstyle["user"]
-        styled_user = s[0]+self.user+s[1]
+        
+        s = self.logstyle.stack
+        t = self.__stack(context=s.context, sep=s.sep, showMain=s.showMain)
+        styled_stack = s.colaps1+t+s.colaps2 if t != "" else ""
 
-        s = self.logstyle["time"]
-        styled_time = s[0]+self.__time()+s[1]
-        styled_color_time = s[0]+self.__color(hex="#eeeeee")+self.__time()+RESET+s[1]
+        s = self.logstyle.user
+        styled_user = s.colaps1+self.user+s.colaps2
 
-        if self.levellog <= levelT[0]:
+        s = self.logstyle.time
+        styled_time = s.colaps1+self.__time()+s.colaps2
+        styled_color_time = s.colaps1+self.__color(hex="#eeeeee")+self.__time()+RESET+s.colaps2
 
-            log = self.format.format(msg=styled_msg,
-                                    context=styled_context,
-                                    time=styled_color_time if self.onColor else styled_time, 
-                                    levelname= styled_color_level+self.__space(levelT) if self.onColor else styled_level+self.__space(levelT),
-                                    user=styled_user)
+        
 
-            print(log)
+        log = self.format.format(msg=styled_msg,
+                                context=styled_context,
+                                stack=styled_stack,
+                                time=styled_color_time if self.onColor else styled_time, 
+                                levelname= styled_color_level+self.__space(levelT) if self.onColor else styled_level+self.__space(levelT),
+                                user=styled_user)
+
+        print(log)
 
         if self.writingFile:
             self.__write(self.format.format(msg=styled_msg,
                                             context=styled_context,
+                                            stack=styled_stack,
                                             time=styled_time,
                                             levelname=styled_level+self.__space(levelT),
                                             user=styled_user))
