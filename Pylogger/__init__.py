@@ -142,7 +142,7 @@ class Logger():
 
                     l.append(_function)
 
-        l = l[::-1][:context]
+        l = l[:context][::-1]
         return sep.join(l)
 
     def activColor(self, color: bool = False):
